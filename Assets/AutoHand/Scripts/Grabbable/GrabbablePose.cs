@@ -13,7 +13,7 @@ namespace Autohand{
 #if UNITY_EDITOR
     [CanEditMultipleObjects]
 #endif
-    [HelpURL("https://earnestrobot.notion.site/Custom-Poses-868c1fa0590542a0b5b7937b5feb6b0d")]
+    [HelpURL("https://app.gitbook.com/s/5zKO0EvOjzUDeT2aiFk3/auto-hand/custom-poses")]
     public class GrabbablePose : MonoBehaviour{
         [AutoHeader("Grabbable Pose")]
         public bool ignoreMe;
@@ -26,7 +26,7 @@ namespace Autohand{
         public bool singleHanded = false;
 
 
-        [AutoToggleHeader("Advanced Settings")]
+        [AutoSmallHeader("Advanced Settings")]
         public bool showAdvanced = true;
         public float positionWeight = 1;
         public float rotationWeight = 1;
@@ -56,17 +56,25 @@ namespace Autohand{
         [HideInInspector]
         public bool leftPoseSet = false;
 
-        List<Hand> posingHands = new List<Hand>();
-
+        public List<Hand> posingHands { get; protected set; }
 
         protected virtual void Awake() {
-            for(int i = 0; i < linkedPoses.Length; i++)
+            posingHands = new List<Hand>();
+            if (poseScriptable != null)
+            {
+                if (poseScriptable.leftSaved)
+                    leftPoseSet = true;
+                if (poseScriptable.rightSaved)
+                    rightPoseSet = true;
+            }
+
+            for (int i = 0; i < linkedPoses.Length; i++)
                 linkedPoses[i].poseEnabled = false;
         }
 
 
-        public bool CanSetPose(Hand hand) {
-            if(singleHanded && posingHands.Count > 0 && !posingHands.Contains(hand))
+        public bool CanSetPose(Hand hand, Grabbable grab) {
+            if(singleHanded && posingHands.Count > 0 && !posingHands.Contains(hand) && !(grab.singleHandOnly && grab.allowHeldSwapping))
                 return false;
             if(hand.poseIndex != poseIndex)
                 return false;
@@ -87,19 +95,15 @@ namespace Autohand{
         }
 
 
-        /// <summary>
-        /// Sets the hand to this pose, make sure to check CanSetPose() flag for proper use
-        /// </summary>
+        /// <summary>Sets the hand to this pose, make sure to check CanSetPose() flag for proper use</summary>
         /// <param name="isProjection">for pose projections, so they wont fill condition for single handed before grab</param>
         public virtual void SetHandPose(Hand hand, bool isProjection = false) {
-
             if(!isProjection) {
                 if(!posingHands.Contains(hand))
                     posingHands.Add(hand);
 
-                for(int i = 0; i < linkedPoses.Length; i++) {
+                for(int i = 0; i < linkedPoses.Length; i++)
                     linkedPoses[i].poseEnabled = true;
-                }
             }
 
             GetHandPoseData(hand).SetPose(hand, transform);
@@ -108,8 +112,10 @@ namespace Autohand{
 
 
         public virtual void CancelHandPose(Hand hand) {
-            if(posingHands.Contains(hand))
+            if(posingHands.Contains(hand)) {
                 posingHands.Remove(hand);
+            }
+
             for(int i = 0; i < linkedPoses.Length; i++)
                 linkedPoses[i].poseEnabled = false;
         }
@@ -183,6 +189,7 @@ namespace Autohand{
                 Debug.Log("Editor Hand must be assigned");
         }
 
+        [ContextMenu("OVERWRITE SCRIPTABLE")]
         public void SaveScriptable(){
             if (poseScriptable != null){
                 if (rightPoseSet)

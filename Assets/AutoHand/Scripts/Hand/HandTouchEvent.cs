@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.Events;
 
 namespace Autohand{
-    [HelpURL("https://www.notion.so/Touch-Events-1341b3e627dd443a99593ff7f0412aa6")]
+    [HelpURL("https://app.gitbook.com/s/5zKO0EvOjzUDeT2aiFk3/auto-hand/extras/hand-touch-trigger")]
     public class HandTouchEvent : MonoBehaviour{
         [Header("For Solid Collision")]
         [Tooltip("Whether or not first hand to enter should take ownership and be the only one to call events")]

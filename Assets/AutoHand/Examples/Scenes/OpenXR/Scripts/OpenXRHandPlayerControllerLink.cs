@@ -4,37 +4,35 @@ using UnityEngine;
 using Autohand.Demo;
 using UnityEngine.InputSystem;
 
-namespace Autohand.Demo{
+namespace Autohand.Demo {
+    [HelpURL("https://app.gitbook.com/s/5zKO0EvOjzUDeT2aiFk3/auto-hand/controller-input")]
     public class OpenXRHandPlayerControllerLink : MonoBehaviour{
         public AutoHandPlayer player;
 
         [Header("Input")]
         public InputActionProperty moveAxis;
         public InputActionProperty turnAxis;
-
-        Vector3 axis;
         
         private void OnEnable() {
-            if(moveAxis.action != null) moveAxis.action.Enable();
+            if (moveAxis.action != null) moveAxis.action.Enable();
             if (moveAxis.action != null) moveAxis.action.performed += MoveAction;
             if (turnAxis.action != null) turnAxis.action.Enable();
             if (turnAxis.action != null) turnAxis.action.performed += TurnAction;
         }
+
         private void OnDisable() {
             if (moveAxis.action != null) moveAxis.action.performed -= MoveAction;
             if (turnAxis.action != null) turnAxis.action.performed -= TurnAction;
         }
 
-        private void FixedUpdate()
-        {
-            var axis = moveAxis.action.ReadValue<Vector2>();
-            player.Move(axis);
+        private void FixedUpdate() {
+            player.Move(moveAxis.action.ReadValue<Vector2>());
+            player.Turn(turnAxis.action.ReadValue<Vector2>().x);
         }
 
-        private void Update()
-        {
-            var axis = moveAxis.action.ReadValue<Vector2>();
-            player.Move(axis);
+        private void Update(){
+            player.Move(moveAxis.action.ReadValue<Vector2>());
+            player.Turn(turnAxis.action.ReadValue<Vector2>().x);
         }
 
         void MoveAction(InputAction.CallbackContext a) {
@@ -46,13 +44,5 @@ namespace Autohand.Demo{
             var axis = a.ReadValue<Vector2>();
             player.Turn(axis.x);
         }
-
-        private void OnDestroy()
-        {
-            if (moveAxis.action != null) moveAxis.action.performed -= MoveAction;
-            if (turnAxis.action != null) turnAxis.action.performed -= TurnAction;
-        }
-
-
     }
 }

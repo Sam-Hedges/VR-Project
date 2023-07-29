@@ -8,9 +8,9 @@ namespace Autohand{
 
         HandPoseData pose;
 
-        public bool CanSetPose(Hand hand) {
+        public bool CanSetPose(Hand hand, Grabbable grab) {
             foreach(var pose in poses) {
-                if(pose != null && pose.CanSetPose(hand))
+                if(pose != null && pose.CanSetPose(hand, grab))
                     return true;
             }
             return false;
@@ -21,11 +21,18 @@ namespace Autohand{
                 poses.Add(pose);
         }
 
+        private void OnDestroy()
+        {
+            for (int i = poses.Count - 1; i >= 0; i--)
+            {
+                Destroy(poses[i]);
+            }
+        }
 
-        public GrabbablePose GetClosestPose(Hand hand){
+        public GrabbablePose GetClosestPose(Hand hand, Grabbable grab) {
             List<GrabbablePose> possiblePoses = new List<GrabbablePose>();
             foreach(var handPose in this.poses)
-                if(handPose != null && handPose.CanSetPose(hand))
+                if(handPose != null && handPose.CanSetPose(hand, grab))
                     possiblePoses.Add(handPose);
             
             float closestValue = float.MaxValue;

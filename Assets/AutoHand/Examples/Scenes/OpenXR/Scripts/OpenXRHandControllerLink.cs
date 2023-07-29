@@ -1,15 +1,18 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR;
+using UnityEngine.XR.OpenXR.Input;
 
-namespace Autohand.Demo
-{
+namespace Autohand.Demo {
+    [HelpURL("https://app.gitbook.com/s/5zKO0EvOjzUDeT2aiFk3/auto-hand/controller-input")]
     public class OpenXRHandControllerLink : HandControllerLink {
         public InputActionProperty grabAxis;
+        public InputActionProperty squeezeAxis;
         public InputActionProperty grabAction;
         public InputActionProperty releaseAction;
         public InputActionProperty squeezeAction;
         public InputActionProperty stopSqueezeAction;
+        public InputActionProperty hapticAction;
 
 
         private bool squeezing;
@@ -28,6 +31,8 @@ namespace Autohand.Demo
             }
 
             if(grabAxis.action != null) grabAxis.action.Enable();
+            if(squeezeAxis.action != null) squeezeAxis.action.Enable();
+            if(hapticAction.action != null) hapticAction.action.Enable();
             if(grabAction.action != null) grabAction.action.performed += Grab;
             if (grabAction.action != null) grabAction.action.Enable();
             if (grabAction.action != null) grabAction.action.performed += Grab;
@@ -38,17 +43,19 @@ namespace Autohand.Demo
             if (stopSqueezeAction.action != null) stopSqueezeAction.action.Enable();
             if (stopSqueezeAction.action != null) stopSqueezeAction.action.performed += StopSqueeze;
         }
-        
+
+
         private void OnDisable(){
+
             if (grabAction.action != null) grabAction.action.performed -= Grab;
             if (releaseAction.action != null) releaseAction.action.performed -= Release;
             if (squeezeAction.action != null) squeezeAction.action.performed -= Squeeze;
             if (stopSqueezeAction.action != null) stopSqueezeAction.action.performed -= StopSqueeze;
         }
 
-        private void Update() {
 
-            hand.SetGrip(grabAxis.action.ReadValue<float>());
+        private void Update() {
+            hand.SetGrip(grabAxis.action.ReadValue<float>(), squeezeAxis.action.ReadValue<float>());
         }
 
         private void Grab(InputAction.CallbackContext grab){
@@ -79,7 +86,12 @@ namespace Autohand.Demo
             }
         }
 
+        public override void TryHapticImpulse(float duration, float amp, float freq = 10)
+        {
+            OpenXRInput.SendHapticImpulse(hapticAction.action, amp, duration, hand.left ? UnityEngine.InputSystem.XR.XRController.leftHand : UnityEngine.InputSystem.XR.XRController.rightHand);
 
+            base.TryHapticImpulse(duration, amp, freq);
+        }
 
     }
 }

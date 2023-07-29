@@ -25,6 +25,8 @@ namespace Autohand {
         public List<GameObject> collisionObjects { get; protected set; } = new List<GameObject>();
         public List<int> collisionObjectsCount { get; protected set; } = new List<int>();
 
+        public List<Collision> collisions { get; protected set; } = new List<Collision>();
+
 
 
         public void Clear() {
@@ -85,6 +87,7 @@ namespace Autohand {
 
         protected virtual void OnCollisionEnter(Collision collision) {
             if(!disableCollisionTracking) {
+                collisions.Add(collision);
                 if(!collisionObjects.Contains(collision.collider.gameObject)) {
                     OnCollisionFirstEnter?.Invoke(collision.collider.gameObject);
                     collisionObjects.Add(collision.collider.gameObject);
@@ -96,6 +99,7 @@ namespace Autohand {
 
         protected virtual void OnCollisionExit(Collision collision) {
             if(!disableCollisionTracking) {
+                collisions.Remove(collision);
                 if(collisionObjects.Contains(collision.collider.gameObject)) {
                     var index = collisionObjects.IndexOf(collision.collider.gameObject);
                     var count = --collisionObjectsCount[index];
@@ -108,6 +112,7 @@ namespace Autohand {
                 }
             }
         }
+
 
         protected virtual void OnTriggerEnter(Collider other) {
             if(!disableTriggersTracking) {
@@ -130,6 +135,18 @@ namespace Autohand {
                         triggerObjectsCount.RemoveAt(index);
                         triggerObjects.Remove(other.gameObject);
                     }
+                }
+            }
+        }
+
+        private void OnDrawGizmos()
+        {
+            foreach (var collision in collisions)
+            {
+                foreach (var contactPoint in collision.contacts)
+                {
+                    Gizmos.DrawSphere(contactPoint.point, 0.0025f);
+
                 }
             }
         }

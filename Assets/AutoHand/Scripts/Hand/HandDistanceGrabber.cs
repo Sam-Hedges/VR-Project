@@ -6,7 +6,7 @@ using NaughtyAttributes;
 
 namespace Autohand {
     [DefaultExecutionOrder(2)]
-    [HelpURL("https://earnestrobot.notion.site/Distance-Grabbing-19e4e8b14f00428295eca75fca752787")]
+    [HelpURL("https://app.gitbook.com/s/5zKO0EvOjzUDeT2aiFk3/auto-hand/grabbable/distance-grabbing")]
     public class HandDistanceGrabber : MonoBehaviour {
         [Header("Hands")]
         [Tooltip("The primaryHand used to trigger pulling or flicking")]
@@ -172,16 +172,22 @@ namespace Autohand {
                 GrabbableChild hitGrabbableChild;
                 if(didHit) {
                     if(hit.transform.CanGetComponent(out hitGrabbable)) {
-                        if(hitGrabbable != targetingDistanceGrabbable) {
+                        if(targetingDistanceGrabbable == null || hitGrabbable.GetInstanceID() != targetingDistanceGrabbable.GetInstanceID())
+                        {
                             StartTargeting(hitGrabbable);
                         }
                     }
                     else if(hit.transform.CanGetComponent(out hitGrabbableChild)) {
                         if(hitGrabbableChild.grabParent.transform.CanGetComponent(out hitGrabbable)) {
-                            if(hitGrabbable != targetingDistanceGrabbable) {
+                            if(targetingDistanceGrabbable == null || hitGrabbable.GetInstanceID() != targetingDistanceGrabbable.GetInstanceID())
+                            {
                                 StartTargeting(hitGrabbable);
                             }
                         }
+                    }
+                    else if(targetingDistanceGrabbable != null && hit.transform.gameObject.GetInstanceID() != targetingDistanceGrabbable.gameObject.GetInstanceID())
+                    {
+                        StopTargeting();
                     }
                 }
                 else {
@@ -244,7 +250,7 @@ namespace Autohand {
         }
 
         public virtual void StopTargeting() {
-            targetingDistanceGrabbable?.grabbable.Unhighlight(primaryHand);
+            targetingDistanceGrabbable?.grabbable.Unhighlight(primaryHand, GetTargetedMaterial(targetingDistanceGrabbable));
             targetingDistanceGrabbable?.StopTargeting?.Invoke(primaryHand, targetingDistanceGrabbable.grabbable);
             if(targetingDistanceGrabbable != null)
                 StopTarget?.Invoke(primaryHand, targetingDistanceGrabbable.grabbable);
@@ -264,8 +270,8 @@ namespace Autohand {
                     hitPoint.transform.parent = selectionHit.transform;
                 }
                 selectingDistanceGrabbable = targetingDistanceGrabbable;
-                selectedEstimatedRadius = Vector3.Distance(hitPoint.transform.position, selectingDistanceGrabbable.transform.position);
-                selectingDistanceGrabbable.grabbable.Unhighlight(primaryHand);
+                selectedEstimatedRadius = Vector3.Distance(hitPoint.transform.position, selectingDistanceGrabbable.grabbable.body.transform.position);
+                selectingDistanceGrabbable.grabbable.Unhighlight(primaryHand, GetTargetedMaterial(selectingDistanceGrabbable));
                 selectingDistanceGrabbable.grabbable.Highlight(primaryHand, GetSelectedMaterial(selectingDistanceGrabbable));
                 selectingDistanceGrabbable?.StartSelecting?.Invoke(primaryHand, selectingDistanceGrabbable.grabbable);
                 targetingDistanceGrabbable?.StopTargeting?.Invoke(primaryHand, selectingDistanceGrabbable.grabbable);
@@ -278,7 +284,7 @@ namespace Autohand {
         public virtual void CancelSelect() {
             StopTargeting();
             pulling = false;
-            selectingDistanceGrabbable?.grabbable.Unhighlight(primaryHand);
+            selectingDistanceGrabbable?.grabbable.Unhighlight(primaryHand, GetSelectedMaterial(selectingDistanceGrabbable));
             selectingDistanceGrabbable?.StopSelecting?.Invoke(primaryHand, selectingDistanceGrabbable.grabbable);
             if(selectingDistanceGrabbable != null)
                 StopSelect?.Invoke(primaryHand, selectingDistanceGrabbable.grabbable);
@@ -293,6 +299,8 @@ namespace Autohand {
                     selectingDistanceGrabbable.grabbable.body.velocity = Vector3.zero;
                     selectingDistanceGrabbable.grabbable.body.angularVelocity = Vector3.zero;
                     selectionHit.point = hitPoint.transform.position;
+                    if (selectingDistanceGrabbable.grabbable.placePoint != null)
+                        selectingDistanceGrabbable.grabbable.placePoint.Remove();
                     primaryHand.Grab(selectionHit, selectingDistanceGrabbable.grabbable);
                     CancelSelect();
                     selectingDistanceGrabbable?.CancelTarget();
@@ -300,12 +308,19 @@ namespace Autohand {
                 else if(selectingDistanceGrabbable.grabType == DistanceGrabType.Velocity) {
                     catchAssistRoutine = StartCoroutine(StartCatchAssist(selectingDistanceGrabbable, selectedEstimatedRadius));
                     catchAsistGrabbable = selectingDistanceGrabbable;
+                    if (selectingDistanceGrabbable.grabbable.placePoint != null)
+                    {
+                        
+                        selectingDistanceGrabbable.grabbable.placePoint.Remove();
+                    }
                     selectingDistanceGrabbable.SetTarget(primaryHand.palmTransform);
                 }
                 else if(selectingDistanceGrabbable.grabType == DistanceGrabType.Linear) {
                     selectingDistanceGrabbable.grabbable.body.velocity = Vector3.zero;
                     selectingDistanceGrabbable.grabbable.body.angularVelocity = Vector3.zero;
                     selectionHit.point = hitPoint.transform.position;
+                    if (selectingDistanceGrabbable.grabbable.placePoint != null)
+                        selectingDistanceGrabbable.grabbable.placePoint.Remove();
                     primaryHand.Grab(selectionHit, selectingDistanceGrabbable.grabbable, GrabType.GrabbableToHand);
                     CancelSelect();
                     selectingDistanceGrabbable?.CancelTarget();

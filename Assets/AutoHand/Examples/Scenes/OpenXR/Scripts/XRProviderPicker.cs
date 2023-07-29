@@ -24,10 +24,18 @@ public class XRProviderPicker : MonoBehaviour
                 hasProvider = true;
         }
 
-        if(hasProvider) {
-            enableMe.AdjustPositions(disableMe);
+        if (hasProvider)
+        {
+           // enableMe.AdjustPositions(disableMe);
             enableMe.enabled = true;
             disableMe.enabled = false;
+        }
+        else
+        {
+
+            disableMe.AdjustPositions(enableMe);
+            enableMe.enabled = false;
+            disableMe.enabled = true;
         }
     }
 

@@ -56,10 +56,10 @@ Material:
     - _Fresnel_Power: 1
     - _Intensity: 1
     - _NoiseDensity: 78.3
-    - _Noise_Density: 100
-    - _Noise_Intensity: 0.068
+    - _Noise_Density: 7.9
+    - _Noise_Intensity: 0.102
     - _QueueControl: 0
     - _QueueOffset: 0
     m_Colors:
-    - _Color: {r: 1, g: 1, b: 1, a: 0}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

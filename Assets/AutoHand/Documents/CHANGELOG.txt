@@ -1,3 +1,93 @@
+V3.2
+New Features
+- Added Gun with Reloadable Magazine and Slide example
+- Added Grabbable Pose Animation
+- Added Grabbable Dispenser Point
+- Added "Held No Friction" toggle on grabbable
+- Added Grabbable Held Joint
+- Added Documentation for all new features on gitbook docs
+
+General Improvements
+- Hands no longer use cone of raycast now one raycast for each overlapping collider
+- Player no longer uses rayscasts but instead uses a single spherecast for grounding
+- Ignore collision after release now stays active until hand is removed from inside all grabbable colliders to strongly prevent clipping
+- Improved stability of two handed holding especially when pulling hands far apart while holding
+- Grabbables no longer have a local update function, instead they use a heldupdate function which is called through the hand while being held
+- Improved TryGrab function to remove failure edge cases. Also included alternatively named ForceGrab() function to make it easier to find
+- Lowered recommended Solver rates
+- Interpolation system replaced with dynamic timestep, which removes the need for a few sweep tests
+- Increased Stability of Joints
+
+Bug Fixes
+- Fixed "editorSelected" variable error warning
+- Fixed bug with (saved grab pose + grabbable to hand) not working cleanly
+- Fixed bug with placepoint tag setting not working properly
+- Fixed bug causing grenades to crash the demo scene
+- Fixed bug setting child layers to parent grabbable layers on grab
+- Fixed bug causing grab return to happen too quickly
+- Fixed bug causing parent on grab to not work properly when using nested grabbables
+- Fixed logic around multiple grabbables under one body with place points
+- Fixed bug with platforming failing on the edge of a large rotating object
+- Fixed bug with platform rotation not being perfectly smooth
+- Auto Hand no longer resets recommended setting on every start, only when the apply button is pressed
+- Fixed bug with hand sway not working smoothly under some settings
+- Other bug fixes
+
+
+V3.1.3
+Bug Fixes
+- Haptics now supported on OpenXR
+- Fixed player sometimes flickering and getting thrown
+- Fixed hand projection/highlight not working in the demo scene
+- Fixed place point not accounting for pivot properly
+- Fixed hand sway not working on proper axis
+- Fixed place points not allowing grab after place with rigidbody deactivation
+- Fixed objects held by two hands sometimes jitter while moving
+- Fixed player tilting over when stepping on dynamic objects
+- Fixed NaN error
+
+V3.1.2
+Bug Fixes
+- Fixed broken prefab link in the Oculus Integration Hand Tracking package
+- Fixed bug with rotationg platforms
+- Fixed hand offsets for OpenXR demo
+
+V3.1.1
+Bug Fixes
+- Fixed broken prefab links in the Oculus Integration package
+- Fixed broken/outdated documenation link
+
+V3.1
+New Features
+- Improved documentation and moved it to a better website
+- Added Magnetic Force Components and (New Demo)
+- Added stepping options to the slider and lever gadgets (New Demo)
+- Improvements to place points (New Demo)
+- "Destroy Object on Place"
+- "Disable Rigidbody on Place"
+- "Disable Grab on Place"
+- "Disable Place Point on Place"
+- Added compare by tag option on Place Points
+- Added additional parameters to the place point unity events (will NOT affect backward compatibility)
+- Made the process for setting up VRIK + Auto Hand simpler
+- Added "IgnoreHandPlayerCollision" component
+- Added force release function to sticky and stickables
+- Added platforming layermask to AutoHandPlayer
+- Improved UI pointer with new events and values
+
+Bug Fixes
+- Fixed issues with place points not working properly under some setup conditions
+- Fixed bugs with jumping
+- Fixed issue with the player "tilting over" from stepping on dynamic objects
+- Fixed bug with hands or held object sometimes flickering during snap turning
+- Fixed performance bug when leaning head over surfaces
+- Fixed issues with smooth turning and snap turning not working properly for some setups
+- Fixed issue with highlight projection being incorrect based on local player body rotation
+- Fixed bug where climbing would sometimes fling you (also recommend using gentle grab on climbable grabbables)
+- UI System will now automatically disable other UI event systems in the scene the will prevent it from running
+
+
+
 3.0: MAKE SURE TO DOWNLOAD AND TRY THE LATEST DEMO SCENE
  - Hand Projection System
 	- Includes highlight projection option, which can be used to project the grab pose of the hand onto the grabbable while highlighting

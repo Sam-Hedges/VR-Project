@@ -5,74 +5,99 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 
 namespace Autohand {
+    public enum PlacePointNameType
+    {
+        name,
+        tag
+    }
+
     public delegate void PlacePointEvent(PlacePoint point, Grabbable grabbable);
-    [RequireComponent(typeof(SphereCollider)), HelpURL("https://earnestrobot.notion.site/Place-Points-e6361a414928450dbb53d76fd653cf9a")]
+    [Serializable]
+    public class UnityPlacePointEvent : UnityEvent<PlacePoint, Grabbable> { }
+    [HelpURL("https://app.gitbook.com/s/5zKO0EvOjzUDeT2aiFk3/auto-hand/place-point")]
     //You can override this by turning the radius to zero, and using any other trigger collider
     public class PlacePoint : MonoBehaviour{
         [AutoHeader("Place Point")]
         public bool ignoreMe;
 
-        [Tooltip("If used, the place point will only accept this grabbable as a target")]
-        public Grabbable matchTarget;
-        [Tooltip("Will allow placement for any grabbable with a name containing this array of strings, leave blank for any grabbable allowed")]
-        public string[] placeNames;
-        [Tooltip("The radius of the place point")]
+
+        [AutoSmallHeader("Place Settings")]
+        public bool showPlaceSettings = true;
+        [Tooltip("Snaps an object to the point at start, leave empty for no target")]
+        public Grabbable startPlaced;
+        [Tooltip("This will make the point place the object as soon as it enters the radius, instead of on release")]
+        public Transform placedOffset;
+        [Tooltip("The radius of the place point (relative to scale)")]
         public float placeRadius = 0.1f;
+        [Tooltip("The local offset of the enter radius of the place point (not the offset of the placement)")]
+        public Vector3 radiusOffset;
+
+        [Space]
+        [Tooltip("This will make the point place the object as soon as it enters the radius, instead of on release")]
+        public bool parentOnPlace = true;
         [Tooltip("This will make the point place the object as soon as it enters the radius, instead of on release")]
         public bool forcePlace = false;
-        [ShowIf("forcePlace"), Tooltip("If true and will force release on place")]
+        [Tooltip("If true and will force hand to release on place when force place is called. If false the hand will attempt to keep the connection to the held object (but can still break due to max distances/break forces)")]
         public bool forceHandRelease = true;
-        [Tooltip("Whether or not the grabbable should be disabled on placement, (Good for things like placed keys)")]
-        public bool disableGrabOnPlace = false;
-        [Tooltip("Whether or not the grabbable should be disabled on placement")]
-        public bool disableObjectOnPlace = false;
-        [Tooltip("Whether or not the grabbable should be destroyed on placement, (Good for things like loaded magazines, combined with enabling static magazine)")]
+        [Space]
+        [Tooltip("Whether or not the placed object should be disabled on placement (this will hide the placed object and leave the place point active for a new object)")]
         public bool destroyObjectOnPlace = false;
+        [Tooltip("Whether or not the placed object should have its rigidbody disabled on place, good for parenting placed objects under dynamic objects")]
+        public bool disableRigidbodyOnPlace = false;
+        [Tooltip("Whether or not the grabbable should be disabled on place")]
+        public bool disableGrabOnPlace = false;
+        [Tooltip("Whether or not this place point should be disabled on placement. It will maintain its connection and can no longer accept new items. Causes less overhead if true")]
+        public bool disablePlacePointOnPlace = false;
+        [Space]
 
-
-        [AutoToggleHeader("Use Kinematic")]
-        [Tooltip("Makes the object being placedObject kinematic")]
+        [Tooltip("If true and will force release on place")]
+        [DisableIf("disableRigidbodyOnPlace")]
         public bool makePlacedKinematic = true;
-
-        [Space][Tooltip("The rigidbody to attach the placed grabbable to - leave empty means no joint")]
-        [HideIf("makePlacedKinematic")]
+        
+        [DisableIf("disableRigidbodyOnPlace")]
+        [Tooltip("The rigidbody to attach the placed grabbable to - leave empty means no joint")]
         public Rigidbody placedJointLink;
-        [HideIf("makePlacedKinematic"), FormerlySerializedAs("placedJointBreakForce")]
+        [DisableIf("disableRigidbodyOnPlace")]
         public float jointBreakForce = 1000;
 
-        [AutoToggleHeader("Show Advanced")]
-        public bool showAdvanced = false;
-        [Tooltip("Snaps an object to the point at start, leave empty for no target")]
-        [ShowIf("showAdvanced")]
-        public Grabbable startPlaced;
-        [Tooltip("The object will snap to this point instead of the place point on place")]
-        [ShowIf("showAdvanced")]
-        public Transform placedOffset;
-        [Tooltip("This will make the point place the object as soon as it enters the radius, instead of on release")]
-        [ShowIf("showAdvanced")] 
-        public bool parentOnPlace = true;
+
+        [AutoSmallHeader("Place Requirements")]
+        public bool showPlaceRequirements = true;
+
         [Tooltip("Whether or not to only allow placement of an object while it's being held (or released)")]
-        [ShowIf("showAdvanced")]
         public bool heldPlaceOnly = false;
+
+        [Tooltip("Whether the placeNames should compare names or tags")]
+        public PlacePointNameType nameCompareType;
+        [Tooltip("Will allow placement for any grabbable with a name containing this array of strings, leave blank for any grabbable allowed")]
+        public string[] placeNames;
         [Tooltip("Will prevent placement for any name containing this array of strings")]
-        [ShowIf("showAdvanced")]
         public string[] blacklistNames;
 
+        [Tooltip("(Unless empty) Will only allow placement any object contained here")]
+        public List<Grabbable> onlyAllows;
+        [Tooltip("Will NOT allow placement any object contained here")]
+        public List<Grabbable> dontAllows;
 
+        [Tooltip("The layer that this place point will check for placeable objects, if none will default to Grabbable")]
+        public LayerMask placeLayers;
+
+        [Space]
 
         [AutoToggleHeader("Show Events")]
         public bool showEvents = true;
         [ShowIf("showEvents")]
-        public UnityEvent OnPlace;
+        public UnityPlacePointEvent OnPlace;
         [ShowIf("showEvents")]
-        public UnityEvent OnRemove;
+        public UnityPlacePointEvent OnRemove;
         [ShowIf("showEvents")]
-        public UnityEvent OnHighlight;
+        public UnityPlacePointEvent OnHighlight;
         [ShowIf("showEvents")]
-        public UnityEvent OnStopHighlight;
+        public UnityPlacePointEvent OnStopHighlight;
         
         //For the programmers
         public PlacePointEvent OnPlaceEvent;
@@ -85,70 +110,131 @@ namespace Autohand {
         public Grabbable lastPlacedObject { get; protected set; } = null;
 
 
-
         protected FixedJoint joint = null;
 
         //How far the placed object has to be moved to count to auto remove from point so something else can take its place
         protected float removalDistance = 0.05f;
-
+        protected float lastPlacedTime;
         protected Vector3 placePosition;
-        protected SphereCollider col;
         protected Transform originParent;
         protected bool placingFrame;
         protected CollisionDetectionMode placedObjDetectionMode;
+        float tickRate = 0.02f;
+        Collider[] collidersNonAlloc = new Collider[30];
 
 
         protected virtual void Start(){
-            col = gameObject.GetComponent<SphereCollider>();
-            col.radius = placeRadius;
-            col.isTrigger = true;
             if (placedOffset == null)
                 placedOffset = transform;
+
+            if(placeLayers == 0)
+                placeLayers = LayerMask.GetMask(Hand.grabbableLayerNameDefault);
+
             SetStartPlaced();
-            StartCoroutine(HighlightSafetyCheck());
         }
 
-        IEnumerator HighlightSafetyCheck(){
-            while (true){
-                if (highlightingObj && placedObject == null){
-                    if (!IsOverlapping(highlightingObj))
-                        StopHighlight(highlightingObj);
-                }
+        Coroutine checkRoutine;
+        protected virtual void OnEnable() {
+            if (placedOffset == null)
+                placedOffset = transform;
 
-                yield return new WaitForSecondsRealtime(0.2f);
+            checkRoutine = StartCoroutine(CheckPlaceObjectLoop());
+        }
+
+        protected virtual void OnDisable() {
+            Remove();
+            StopCoroutine(checkRoutine);   
+        }
+
+
+        int lastOverlapCount = 0;
+        Grabbable tempGrabbable;
+        protected virtual IEnumerator CheckPlaceObjectLoop() {
+            var scale = Mathf.Abs(transform.lossyScale.x < transform.lossyScale.y ? transform.lossyScale.x : transform.lossyScale.y);
+            scale = Mathf.Abs(scale < transform.lossyScale.z ? scale : transform.lossyScale.z);
+
+            CheckPlaceObject(placeRadius, scale);
+
+            yield return new WaitForSeconds(UnityEngine.Random.Range(0f, tickRate));
+            while(gameObject.activeInHierarchy) {
+                    CheckPlaceObject(placeRadius, scale);
+
+                yield return new WaitForSeconds(tickRate);
+            }
+        }
+
+        void CheckPlaceObject(float radius, float scale) {
+            if(!disablePlacePointOnPlace && !disableRigidbodyOnPlace && placedObject != null && !IsStillOverlapping(placedObject, scale))
+                Remove(placedObject);
+            
+            if(placedObject == null && highlightingObj == null) {
+                var overlaps = Physics.OverlapSphereNonAlloc(placedOffset.position + transform.rotation * radiusOffset, radius * scale, collidersNonAlloc, placeLayers);
+                if(overlaps != lastOverlapCount) {
+                    for(int i = 0; i < overlaps; i++) {
+                        if(AutoHandExtensions.HasGrabbable(collidersNonAlloc[i].gameObject, out tempGrabbable) && CanPlace(tempGrabbable)) {
+                            Highlight(tempGrabbable);
+                            break;
+                        }
+                    }
+                }
+                lastOverlapCount = overlaps;
+            }
+            else if(highlightingObj != null) {
+                if(!IsStillOverlapping(highlightingObj, scale)) {
+                    StopHighlight(highlightingObj);
+                }
             }
         }
 
         public virtual bool CanPlace(Grabbable placeObj) {
-            if(placedObject != null)
-                return false;
 
-            if (heldPlaceOnly && placeObj.HeldCount() == 0)
+            if(placedObject != null) {
                 return false;
+            }
 
-            if (matchTarget != null && placeObj != matchTarget)
+            if(heldPlaceOnly && placeObj.HeldCount() == 0) {
                 return false;
+            }
 
-            if (placeNames.Length == 0 && blacklistNames.Length == 0)
+            if(onlyAllows.Count > 0 && !onlyAllows.Contains(placeObj)) {
+                return false;
+            }
+
+            if(dontAllows.Count > 0 && dontAllows.Contains(placeObj)) {
+                return false;
+            }
+
+            if(placeNames.Length == 0 && blacklistNames.Length == 0) {
                 return true;
+            }
 
             if (blacklistNames.Length > 0)
-                foreach(var badName in blacklistNames) {
-                    if(placeObj.name.Contains(badName)){
+                foreach(var badName in blacklistNames)
+                {
+                    if (nameCompareType == PlacePointNameType.name && placeObj.name.Contains(badName))
                         return false;
-                    }
+                    if (nameCompareType == PlacePointNameType.tag && placeObj.CompareTag(badName))
+                        return false;
                 }
-            
-            if(placeNames.Length > 0)
-                foreach(var placeName in placeNames) {
-                    if(placeObj.name.Contains(placeName)){
+
+            if (placeNames.Length > 0)
+                foreach (var placeName in placeNames)
+                {
+                    if (nameCompareType == PlacePointNameType.name && placeObj.name.Contains(placeName))
                         return true;
-                    }
+                    if (nameCompareType == PlacePointNameType.tag && placeObj.CompareTag(placeName))
+                        return true;
                 }
+            else
+                return true;
 
             return false;
         }
-        
+
+        public virtual void TryPlace(Grabbable placeObj) {
+            if(CanPlace(placeObj))
+                Place(placeObj);
+        }
 
         public virtual void Place(Grabbable placeObj) {
             if (placedObject != null)
@@ -157,90 +243,118 @@ namespace Autohand {
             if(placeObj.placePoint != null && placeObj.placePoint != this)
                 placeObj.placePoint.Remove(placeObj);
 
-
             placedObject = placeObj;
             placedObject.SetPlacePoint(this);
 
-
-            if (forcePlace && forceHandRelease && placeObj.HeldCount() > 0)
+            if((forceHandRelease || disableRigidbodyOnPlace) && placeObj.HeldCount() > 0) {
                 placeObj.ForceHandsRelease();
+                foreach(var grab in placeObj.grabbableChildren)
+                    grab.ForceHandsRelease();
+                foreach(var grab in placeObj.grabbableParents)
+                    grab.ForceHandsRelease();
+            }
 
             placingFrame = true;
             originParent = placeObj.transform.parent;
 
-            placeObj.transform.position = placedOffset.position;
-            placeObj.transform.rotation = placedOffset.rotation;
-            placeObj.body.position = placeObj.transform.position;
-            placeObj.body.rotation = placeObj.transform.rotation;
-            placedObjDetectionMode = placeObj.body.collisionDetectionMode;
+            placeObj.rootTransform.position = placedOffset.position;
+            placeObj.rootTransform.rotation = placedOffset.rotation;
 
-            placeObj.OnGrabEvent += OnPlacedObjectGrabbed;
-            placeObj.OnReleaseEvent += OnPlacedObjectReleased;
+            if (placeObj.body != null)
+            {
+                placeObj.body.velocity = Vector3.zero;
+                placeObj.body.angularVelocity = Vector3.zero;
+                placedObjDetectionMode = placeObj.body.collisionDetectionMode;
 
-            if(makePlacedKinematic) {
-                placeObj.body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-                placeObj.body.isKinematic = makePlacedKinematic;
-            }
-            else if (placedJointLink != null){
-                joint = placedJointLink.gameObject.AddComponent<FixedJoint>();
-                joint.connectedBody = placeObj.body;
-                joint.breakForce = jointBreakForce;
-                joint.breakTorque = jointBreakForce;
+                if (makePlacedKinematic && !disableRigidbodyOnPlace)
+                {
+                    placeObj.body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+                    placeObj.body.isKinematic = makePlacedKinematic;
+                }
+
+                if (placedJointLink != null){
+                    joint = placedJointLink.gameObject.AddComponent<FixedJoint>();
+                    joint.connectedBody = placeObj.body;
+                    joint.breakForce = jointBreakForce;
+                    joint.breakTorque = jointBreakForce;
                 
-                joint.connectedMassScale = 1;
-                joint.massScale = 1;
-                joint.enableCollision = false;
-                joint.enablePreprocessing = false;
+                    joint.connectedMassScale = 1;
+                    joint.massScale = 1;
+                    joint.enableCollision = false;
+                    joint.enablePreprocessing = false;
+                }
             }
-            
+
+
+            foreach(var grab in placeObj.grabbableChildren) 
+                grab.OnGrabEvent += OnRelativeGrabbed;
+            foreach(var grab in placeObj.grabbableParents) 
+                grab.OnGrabEvent += OnRelativeGrabbed;
 
             StopHighlight(placeObj);
+            
+            placePosition = placedObject.rootTransform.position;
 
-            placePosition = placedObject.transform.position;
+            placeObj.OnPlacePointAddEvent?.Invoke(this, placeObj);
+            foreach(var grabChild in placeObj.grabbableChildren)
+                grabChild.OnPlacePointAddEvent?.Invoke(this, grabChild);
+            foreach(var garb in placedObject.grabbableParents)
+                garb.OnPlacePointAddEvent?.Invoke(this, garb);
+
             OnPlaceEvent?.Invoke(this, placeObj);
-            OnPlace?.Invoke();
+            OnPlace?.Invoke(this, placeObj);
+            lastPlacedTime = Time.time;
 
-            placeObj.body.velocity = Vector3.zero;
-            placeObj.body.angularVelocity = Vector3.zero;
+            if (parentOnPlace)
+                placedObject.rootTransform.parent = transform;
+
+            if (disableRigidbodyOnPlace)
+                placeObj.DeactivateRigidbody();
 
 
-            if(parentOnPlace)
-                placeObj.transform.parent = transform;
+            if (disablePlacePointOnPlace)
+                enabled = false;
 
-            if (disableGrabOnPlace)
-                placeObj.enabled = false;
+            if (disableGrabOnPlace || disablePlacePointOnPlace)
+                placeObj.isGrabbable = false;
 
-            if (disableObjectOnPlace)
-                placeObj.gameObject.SetActive(false);
-
-            if(destroyObjectOnPlace)
-                Destroy(placeObj.gameObject);
-        }
-
-        public void Remove() {
-            if(placedObject != null)
-                Remove(placedObject);
+            if (destroyObjectOnPlace)
+                Destroy(placedObject);
         }
 
         public virtual void Remove(Grabbable placeObj) {
-            if (placedObject == null)
+            if (placeObj == null || placeObj != placedObject || disablePlacePointOnPlace)
                 return;
 
-            if(makePlacedKinematic)
-                placeObj.body.isKinematic = false;
+            if (placeObj.body != null){
+                if (makePlacedKinematic && !disableRigidbodyOnPlace)
+                    placeObj.body.isKinematic = false;
 
-            placeObj.body.collisionDetectionMode = placedObjDetectionMode;
+                placeObj.body.collisionDetectionMode = placedObjDetectionMode;
+            }
 
-            placeObj.OnGrabEvent -= OnPlacedObjectGrabbed;
-            placeObj.OnReleaseEvent -= OnPlacedObjectReleased;
+            foreach(var grab in placeObj.grabbableChildren)
+                grab.OnGrabEvent -= OnRelativeGrabbed;
+            foreach(var grab in placeObj.grabbableParents) 
+                grab.OnGrabEvent -= OnRelativeGrabbed;
 
-            if (!(placeObj.parentOnGrab && (placeObj.HeldCount() > 0 || placeObj.beingGrabbed)) && parentOnPlace && !placeObj.BeingDestroyed())
-                placeObj.transform.parent = originParent;
+            placedObject.OnPlacePointRemoveEvent?.Invoke(this, highlightingObj);
+            foreach(var grabChild in placedObject.grabbableChildren)
+                grabChild.OnPlacePointRemoveEvent?.Invoke(this, grabChild);
+            foreach(var garb in placedObject.grabbableParents)
+                garb.OnPlacePointRemoveEvent?.Invoke(this, garb);
 
             OnRemoveEvent?.Invoke(this, placeObj);
-            OnRemove?.Invoke();
+            OnRemove?.Invoke(this, placeObj);
 
             Highlight(placeObj);
+
+            if(disableRigidbodyOnPlace) {
+                placeObj.ActivateRigidbody();
+            }
+            
+            if (!placeObj.parentOnGrab && parentOnPlace && gameObject.activeInHierarchy)
+                placeObj.transform.parent = originParent;
 
             lastPlacedObject = placedObject;
             placedObject = null;
@@ -251,14 +365,28 @@ namespace Autohand {
             }
         }
 
+        public void Remove() {
+            if(placedObject != null)
+                Remove(placedObject);
+        }
 
         internal virtual void Highlight(Grabbable from) {
             if(highlightingObj == null){
                 from.SetPlacePoint(this);
+                foreach(var garb in from.grabbableParents)
+                    garb.SetPlacePoint(this);
+                foreach(var garb in from.grabbableChildren)
+                    garb.SetPlacePoint(this);
 
                 highlightingObj = from;
+                highlightingObj.OnPlacePointHighlightEvent?.Invoke(this, highlightingObj);
+                foreach(var grabChild in highlightingObj.grabbableChildren)
+                    grabChild.OnPlacePointHighlightEvent?.Invoke(this, grabChild);
+                foreach(var garb in highlightingObj.grabbableParents)
+                    garb.OnPlacePointHighlightEvent?.Invoke(this, garb);
+
                 OnHighlightEvent?.Invoke(this, from);
-                OnHighlight?.Invoke();
+                OnHighlight?.Invoke(this, from);
 
                 if(placedObject == null && forcePlace)
                     Place(from);
@@ -267,27 +395,32 @@ namespace Autohand {
 
         internal virtual void StopHighlight(Grabbable from) {
             if(highlightingObj != null) {
-                bool callStopHighlight = true;
-                if(placedObject == null) {
-                    callStopHighlight = !IsOverlapping(from);
-                }
+                highlightingObj.OnPlacePointUnhighlightEvent?.Invoke(this, highlightingObj);
+                foreach(var grabChild in highlightingObj.grabbableChildren)
+                    grabChild.OnPlacePointUnhighlightEvent?.Invoke(this, grabChild);
+                foreach(var garb in highlightingObj.grabbableParents)
+                    garb.OnPlacePointUnhighlightEvent?.Invoke(this, garb);
 
-                if(callStopHighlight) {
-                    highlightingObj = null;
-                    OnStopHighlightEvent?.Invoke(this, from);
-                    OnStopHighlight?.Invoke();
-                    if (placedObject == null)
-                        from.SetPlacePoint(null);
-                }
+                highlightingObj = null;
+                OnStopHighlightEvent?.Invoke(this, from);
+                OnStopHighlight?.Invoke(this, from);
+
+
+                if (placedObject == null)
+                    from.SetPlacePoint(null);
+                foreach(var garb in from.grabbableParents)
+                    garb.SetPlacePoint(null);
+                foreach(var garb in from.grabbableChildren)
+                    garb.SetPlacePoint(null);
             }
         }
 
 
 
-        protected bool IsOverlapping(Grabbable from){
-            var sphereCheck = Physics.OverlapSphere(transform.position + col.center, placeRadius, LayerMask.GetMask(Hand.grabbableLayers));
-            for (int i = 0; i < sphereCheck.Length; i++){
-                if (sphereCheck[i].attachedRigidbody == highlightingObj.body) {
+        protected bool IsStillOverlapping(Grabbable from, float scale = 1){
+            var sphereCheck = Physics.OverlapSphereNonAlloc(placedOffset.position + placedOffset.rotation * radiusOffset, placeRadius * scale, collidersNonAlloc, placeLayers);
+            for (int i = 0; i < sphereCheck; i++){
+                if (collidersNonAlloc[i].attachedRigidbody == from.body) {
                     return true;
                 }
             }
@@ -297,9 +430,19 @@ namespace Autohand {
 
 
         public virtual void SetStartPlaced() {
-            if(startPlaced != null){
-                startPlaced.SetPlacePoint(this);
-                Place(startPlaced);
+            if(startPlaced != null) {
+                if(startPlaced.gameObject.scene.IsValid()) {
+                    startPlaced.SetPlacePoint(this);
+                    Highlight(startPlaced);
+                    Place(startPlaced);
+                }
+                else {
+                    var instance = GameObject.Instantiate(startPlaced);
+                    instance.SetPlacePoint(this);
+                    Highlight(instance);
+                    Place(instance);
+
+                }
             }
         }
         
@@ -307,22 +450,9 @@ namespace Autohand {
             return placedObject;
         }
 
-        internal float Distance(Transform from) {
-            return Vector3.Distance(from.position, transform.position+transform.InverseTransformPoint(placedOffset.position));
-        }
-
-        protected virtual void OnPlacedObjectGrabbed(Hand pHand, Grabbable pGrabbable)
+        protected virtual void OnRelativeGrabbed(Hand pHand, Grabbable pGrabbable)
         {
-            // Unset kinematic status when the placed object is grabbed.
-            if (makePlacedKinematic)
-                pGrabbable.body.isKinematic = false;
-        }
-
-        protected virtual void OnPlacedObjectReleased(Hand pHand, Grabbable pGrabbable)
-        {
-            // Re-Place() grabbable when placed object is released before this has been unsubscribed to. (Before the object has left the bounds of the place points.)
-            if (makePlacedKinematic)
-                Place(pGrabbable);
+            Remove();
         }
 
         protected virtual void OnJointBreak(float breakForce) {
@@ -330,19 +460,14 @@ namespace Autohand {
                 Remove(placedObject);
         }
 
-        void OnDrawGizmosSelected() {
-            if(col == null)
-                col = gameObject.GetComponent<SphereCollider>();
+        void OnDrawGizmos() {
+            if(placedOffset == null)
+                placedOffset = transform;
+            Gizmos.color = Color.white; 
+            var scale = Mathf.Abs(transform.lossyScale.x < transform.lossyScale.y ? transform.lossyScale.x : transform.lossyScale.y);
+            scale = Mathf.Abs(scale < transform.lossyScale.z ? scale : transform.lossyScale.z);
 
-            if(col != null)
-                placeRadius= col.radius;
-
-            if (placedOffset == null)
-                return;
-            Gizmos.color = Color.white;
-            Gizmos.DrawWireSphere(transform.position + transform.InverseTransformPoint(placedOffset.position), 0.0025f);
-
-
+            Gizmos.DrawWireSphere(transform.rotation * radiusOffset + placedOffset.position, placeRadius* scale);
         }
 
     }
